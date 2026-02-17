@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getLocalDateString } from '@/lib/date'
+import { exerciseCatalog } from '@/lib/exerciseCatalog'
 import { useAuth } from '@/components/AuthProvider'
 import RequireAuth from '@/components/RequireAuth'
 import Sidebar from '@/components/Sidebar'
@@ -10,6 +11,8 @@ import Sidebar from '@/components/Sidebar'
 const templateGoals = ['Muscle gain', 'Cardio']
 const templateMuscleGroups = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full body']
 const templateCardioModes = ['Treadmill', 'Bike', 'Rower', 'Stairmaster', 'Elliptical', 'Other']
+
+import Link from 'next/link'
 
 export default function WorkoutLibraryPage() {
   const { user } = useAuth()
@@ -19,6 +22,17 @@ export default function WorkoutLibraryPage() {
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const exerciseTabs = Object.keys(exerciseCatalog)
+  const [exerciseTab, setExerciseTab] = useState(exerciseTabs[0] || 'Chest')
+  // Database search state
+  const [dbSearchResults, setDbSearchResults] = useState([])
+
+  const [exerciseSubTab, setExerciseSubTab] = useState(() => {
+    const firstCat = exerciseTabs[0]
+    const subs = firstCat ? Object.keys(exerciseCatalog[firstCat] || {}) : []
+    return subs[0] || ''
+  })
+  const [exerciseQuery, setExerciseQuery] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -28,6 +42,31 @@ export default function WorkoutLibraryPage() {
     estimated_duration: 30,
     exercises: [{ name: '', sets: 3, reps: 10, notes: '' }]
   })
+
+  // Debounced search for database exercises
+  useEffect(() => {
+    const query = exerciseQuery.trim()
+    if (query.length < 2) {
+      setDbSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      if (!supabase) return
+
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('id, name, slug, category')
+        .ilike('name', `%${query}%`)
+        .limit(10)
+
+      if (!error && data) {
+        setDbSearchResults(data)
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [exerciseQuery])
 
   const fetchWorkouts = useCallback(async () => {
     if (!supabase) {
@@ -55,6 +94,34 @@ export default function WorkoutLibraryPage() {
   }, [user])
 
   useEffect(() => { if (user) fetchWorkouts() }, [user, fetchWorkouts])
+
+  useEffect(() => {
+    // Keep subcategory valid if the user switches main tabs.
+    const subs = Object.keys(exerciseCatalog[exerciseTab] || {})
+    if (!subs.includes(exerciseSubTab)) setExerciseSubTab(subs[0] || '')
+  }, [exerciseTab, exerciseSubTab])
+
+  const addExerciseFromCatalog = (exerciseName) => {
+    if (!exerciseName) return
+
+    if (!showForm) setShowForm(true)
+
+    setFormData((prev) => {
+      const next = { ...prev }
+      const list = Array.isArray(next.exercises) ? [...next.exercises] : []
+
+      // Prefer filling an existing blank row.
+      const blankIdx = list.findIndex((ex) => !String(ex?.name || '').trim())
+      if (blankIdx >= 0) {
+        list[blankIdx] = { ...list[blankIdx], name: exerciseName }
+      } else {
+        list.push({ name: exerciseName, sets: 3, reps: 10, notes: '' })
+      }
+
+      next.exercises = list
+      return next
+    })
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -101,6 +168,9 @@ export default function WorkoutLibraryPage() {
       setFormData({
         name: '',
         description: '',
+        goal: 'Muscle gain',
+        muscle_group: 'Full body',
+        cardio_mode: 'Treadmill',
         estimated_duration: 30,
         exercises: [{ name: '', sets: 3, reps: 10, notes: '' }]
       })
@@ -245,6 +315,107 @@ export default function WorkoutLibraryPage() {
             </div>
           )}
 
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="font-display text-lg font-semibold">Exercise Library</h3>
+                <p className="text-sm text-gray-400">
+                  Pick a muscle group, then click an exercise to add it to your template.
+                </p>
+              </div>
+              <input
+                value={exerciseQuery}
+                onChange={(e) => setExerciseQuery(e.target.value)}
+                placeholder="Search (e.g., bench, row, leg press)"
+                className="w-full sm:w-80"
+              />
+            </div>
+
+            {/* Database Search Results */}
+            {dbSearchResults.length > 0 && (exerciseQuery.trim().length >= 2) && (
+              <div className="mb-6 animate-fadeIn">
+                <h4 className="text-sm font-semibold text-accent mb-2">Search Results</h4>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {dbSearchResults.map((ex) => (
+                    <div
+                      key={ex.id}
+                      className="p-3 bg-white/10 rounded-lg flex items-center justify-between gap-3 group"
+                    >
+                      <Link href={`/library/${ex.slug}`} className="font-medium hover:text-primary transition-colors flex-1 truncate">
+                        {ex.name}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => addExerciseFromCatalog(ex.name)}
+                        className="text-xs bg-primary/20 text-primary-light px-2 py-1 rounded hover:bg-primary/30"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-b border-white/5 my-4" />
+              </div>
+            )}
+
+
+            <div className="flex flex-wrap gap-2">
+              {exerciseTabs.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setExerciseTab(t)}
+                  className={exerciseTab === t ? 'btn-primary text-sm px-3 py-2' : 'btn-secondary text-sm px-3 py-2'}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(exerciseCatalog[exerciseTab] || {}).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setExerciseSubTab(st)}
+                  className={exerciseSubTab === st ? 'btn-primary text-xs px-3 py-1.5' : 'btn-secondary text-xs px-3 py-1.5'}
+                >
+                  {st.replace(/([a-z])([A-Z])/g, '$1 $2')}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {(
+                (exerciseCatalog[exerciseTab]?.[exerciseSubTab] || [])
+                  .filter((name) => {
+                    const q = String(exerciseQuery || '').trim().toLowerCase()
+                    if (!q) return true
+                    return String(name).toLowerCase().includes(q)
+                  })
+              ).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => addExerciseFromCatalog(name)}
+                  className="text-left p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                  title="Add to template exercises"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{name}</span>
+                    <span className="text-xs text-gray-400">Add</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {exerciseQuery.trim() && (
+              <p className="text-xs text-gray-500">
+                Showing matches in {exerciseTab} / {exerciseSubTab.replace(/([a-z])([A-Z])/g, '$1 $2')}.
+              </p>
+            )}
+          </div>
+
           {showForm && (
             <form onSubmit={handleSubmit} className="card space-y-4">
               <h3 className="font-display text-lg font-semibold">
@@ -255,8 +426,9 @@ export default function WorkoutLibraryPage() {
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Workout Name</label>
                   <input
+                    id="workout-name-input"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Upper Body Strength"
                     required
                   />
@@ -305,7 +477,7 @@ export default function WorkoutLibraryPage() {
                   <input
                     type="number"
                     value={formData.estimated_duration}
-                    onChange={(e) => setFormData({...formData, estimated_duration: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, estimated_duration: e.target.value })}
                     min="5"
                   />
                 </div>
@@ -315,7 +487,7 @@ export default function WorkoutLibraryPage() {
                 <label className="block text-sm text-gray-400 mb-1">Description</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Brief description of this workout..."
                   rows={2}
                 />
