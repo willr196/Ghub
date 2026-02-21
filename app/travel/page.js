@@ -343,7 +343,7 @@ export default function TravelPage() {
                         <span className="text-xs bg-success/20 text-success px-2 py-1 rounded">🔄 Would return</span>
                       )}
                     </div>
-                    {isAuthenticated && (
+                    {user && trip.user_id === user.id && (
                       <button onClick={() => handleDelete(trip.id)} className="text-error hover:text-red-400 text-sm">
                         🗑️ Delete
                       </button>

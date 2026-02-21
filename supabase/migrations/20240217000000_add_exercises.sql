@@ -1,4 +1,7 @@
 
+-- Required for gin_trgm_ops index on exercise name search
+create extension if not exists pg_trgm;
+
 -- Exercises table for the global library
 create table if not exists public.exercises (
   id uuid default uuid_generate_v4() primary key,

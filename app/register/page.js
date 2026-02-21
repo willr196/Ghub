@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/components/AuthProvider'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -12,7 +11,6 @@ export default function RegisterPage() {
   const [secretCode, setSecretCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signUp } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e) => {
@@ -34,31 +32,25 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      // Validate secret code server-side (not exposed to client)
-      const codeResponse = await fetch('/api/verify-code', {
+      const registerResponse = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: secretCode })
+        body: JSON.stringify({
+          email,
+          password,
+          code: secretCode,
+        })
       })
 
-      const codeResult = await codeResponse.json()
+      const registerResult = await registerResponse.json().catch(() => ({}))
 
-      if (!codeResponse.ok || !codeResult.valid) {
-        setError(codeResult.error || 'Unable to verify secret code right now.')
+      if (!registerResponse.ok || !registerResult.success) {
+        setError(registerResult.error || 'Unable to create account right now.')
         setLoading(false)
         return
       }
 
-      // Code is valid, proceed with registration
-      const { error } = await signUp(email, password)
-
-      if (error) {
-        setError(error.message)
-        setLoading(false)
-      } else {
-        // Show success message and redirect
-        router.push('/login?registered=true')
-      }
+      router.push('/login?registered=true')
     } catch (err) {
       setError('An error occurred. Please try again.')
       setLoading(false)

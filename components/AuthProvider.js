@@ -44,34 +44,6 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signUp = async (email, password) => {
-    if (!supabase) return { error: { message: 'Database not configured' } }
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      })
-      if (data?.user && !error) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            email: data.user.email,
-            onboarding_completed: false,
-            onboarding_hide_until: null,
-            updated_at: new Date().toISOString()
-          })
-
-        if (profileError) {
-          console.error('Error creating profile row:', profileError)
-        }
-      }
-      return { data, error }
-    } catch (error) {
-      return { error: { message: 'An unexpected error occurred' } }
-    }
-  }
-
   const signIn = async (email, password) => {
     if (!supabase) return { error: { message: 'Database not configured' } }
     try {
@@ -98,7 +70,6 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
-    signUp,
     signIn,
     signOut,
     isAuthenticated: !!user,

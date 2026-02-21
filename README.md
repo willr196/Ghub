@@ -10,7 +10,7 @@ A comprehensive fitness tracking web app built as a Christmas gift! Track workou
 - ☀️ **Daily Log** - Water intake, sleep, mood, and energy tracking
 - 🎯 **Goals** - Set and track fitness goals with visual progress
 - 🌟 **Sobriety Tracker** - Days alcohol/smoke-free with health benefit milestones
-- 🍳 **Recipes** - Save and share healthy recipes
+- 🍳 **Recipes** - Save and share healtgit hy recipes
 - 📝 **Blog** - Journal your fitness journey (public posts)
 - 📸 **Gallery** - Document progress with photos/videos
 - 🔬 **Science** - Evidence-based fitness information
@@ -79,9 +79,10 @@ create policy "Users can insert own profile" on public.profiles
 ### Step 3: Get Your Supabase Keys
 
 1. Go to **Settings** → **API** (left sidebar)
-2. You'll need two values:
+2. You'll need three values:
    - **Project URL** (looks like `https://xxxxx.supabase.co`)
    - **anon public** key (under "Project API keys")
+   - **service_role** key (under "Project API keys", keep this secret)
 3. Keep this tab open, you'll need these soon
 
 ### Step 4: Set Up GitHub Repository
@@ -120,6 +121,7 @@ git push -u origin main
 |------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key (server-only) |
 | `SECRET_CODE` | `GHUB_CHRISTMAS_2024` (or change this!) |
 | `NEXT_PUBLIC_SITE_URL` | Your Vercel URL (for metadata and sitemap) |
 
@@ -129,9 +131,11 @@ git push -u origin main
 
 ### Step 6: Configure Supabase Auth
 
-1. Back in Supabase, go to **Authentication** → **URL Configuration**
-2. Set **Site URL** to your Vercel URL (e.g., `https://ghub-xxx.vercel.app`)
-3. Under **Redirect URLs**, add:
+1. Back in Supabase, go to **Authentication** → **Providers** → **Email**
+2. Turn off open self-signup (`Enable Email Signup` / `Allow new users to sign up`, wording depends on UI version).
+3. Go to **Authentication** → **URL Configuration**
+4. Set **Site URL** to your Vercel URL (e.g., `https://ghub-xxx.vercel.app`)
+5. Under **Redirect URLs**, add:
    - `https://ghub-xxx.vercel.app/**`
    - `http://localhost:3000/**` (for local development)
 
@@ -191,7 +195,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SECRET_CODE`, and `NEXT_PUBLIC_SITE_URL` in `.env.local`.
+Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SECRET_CODE`, and `NEXT_PUBLIC_SITE_URL` in `.env.local`.
 
 ### 2) How to run locally
 
